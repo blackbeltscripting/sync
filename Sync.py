@@ -82,6 +82,9 @@ def Sync(argv):
             """ + websites_folder + """[www.WEBSITE.com]/""" + log_name + """/ log files.
         """
 
+    if not argv:
+        print help_command
+        sys.exit(2)
     try:
         opts, args = getopt.getopt(argv, "hu:d:", ["upload=","download="])
     except getopt.GetoptError:
@@ -113,7 +116,7 @@ def Sync(argv):
                 to_location = local_website
             rsync_command = "rsync -vrizc --del --exclude=.sync --exclude=tmp --exclude=.ssh --exclude=" + log_name + " --exclude=.git --exclude=.gitignore " + from_location + " " + to_location
             # define variables
-            log_path = log_name + '/'
+            log_path = local_website + log_name + '/'
             ignore = local_website + ".gitignore"
 
             # CD to website
@@ -125,7 +128,7 @@ def Sync(argv):
             # Look for git
             if not os.path.isfile(ignore):
                 print "[!] No .gitignore file found. Creating file."
-                write(ignore, log_path)
+                write(ignore, log_name + '/')
             if not os.path.exists(local_website + ".git"):
                 print "[!] No .git folder found. Initializing git."
                 docommand(["git", "init"])
