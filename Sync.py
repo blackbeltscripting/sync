@@ -48,13 +48,12 @@ def commandtolog(command, command_name, log_path):
 def getremotesite():
     for dotfile in glob.glob(".*"):
         if dotfile == ".sync" and os.stat(dotfile).st_size != 0:
-            with open(dotfile, 'r') as line:
-                remote_website = line.readline()
-
-                # remove line break
-                remote_website = remote_website[:-1]
-
-                return remote_website
+            f = open(dotfile, 'r')
+            remote_website = []
+            for line in f:
+                remote_website.append(line[:-1])
+            f.close()
+            return remote_website
 
 def Sync(argv):
     # define variables
@@ -101,23 +100,26 @@ def Sync(argv):
         os.chdir(local_website)
         remote_website = getremotesite()
         if remote_website:
-            if remote_website[-1:] != "/":
-                remote_website = remote_website + "/"
+            # Must define here
+            log_path = local_website + log_name + '/'
 
             if opt == '-h':
                 print help_command
             elif opt in ("-u", "--upload"):
-                print "[rsync]" + local_website + " -> " + remote_website
                 from_location = local_website
-                to_location = remote_website
+                to_location = remote_website[0]
             elif opt in ("-d", "--download"):
-                print "[rsync] " + remote_website + " -> " + local_website
-                from_location = remote_website
+                from_location = remote_website[1]
                 to_location = local_website
-            rsync_command = "rsync -vrizc --del --exclude=.sync --exclude=tmp --exclude=.ssh --exclude=" + log_name + " --exclude=.git --exclude=.gitignore " + from_location + " " + to_location
+                print "[rsync] " + from_location + " -> " + to_location
+                rsync_command = "rsync -vrizc --del --exclude=.sync --exclude=tmp --exclude=.ssh --exclude=" + log_name + " --exclude=.git --exclude=.gitignore " + from_location + " " + to_location
+                commandtolog(rsync_command.split(), 'rsync', log_path)
+
+                from_location = remote_website[0]
+
             # define variables
-            log_path = local_website + log_name + '/'
-            ignore = local_website + ".gitignore"
+            print "[rsync] " + from_location + " -> " + to_location
+            rsync_command = "rsync -vrizc --del --exclude=.sync --exclude=db_backup --exclude=tmp --exclude=.ssh --exclude=" + log_name + " --exclude=.git --exclude=.gitignore " + from_location + " " + to_location
 
             # CD to website
             os.chdir(local_website)
@@ -126,6 +128,7 @@ def Sync(argv):
             commandtolog(rsync_command.split(), 'rsync', log_path)
 
             # Look for git
+            ignore = local_website + ".gitignore"
             if not os.path.isfile(ignore):
                 print "[!] No .gitignore file found. Creating file."
                 write(ignore, log_name + '/')
