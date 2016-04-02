@@ -1,23 +1,18 @@
 #!/usr/bin/python
 
-# import classes
-import sys, glob, os, datetime, getopt, subprocess
+# Imports all classes that are being used in program
+import sys, glob, os, datetime, getopt, subprocess, argparse
+
+# Import this file
+# ~/.sync_config
+# [...]
+script_name='sync'
 
 # Define variables
 websites_folder = os.environ['HOME'] + "/Public/" + "live_sites/"
 log_name = 'logs'
 
-# write( [string] filename, [string] output )
-# Writes [string] output into file [string] filename
-def write(filename, output):
-    saveout = sys.stdout
-    fsock = open(filename, 'w')
-    sys.stdout = fsock
-    print output
-    sys.stdout = saveout
-    fsock.close()
-
-# docommand( [list] command )
+# docommand( [list] command ) {{{
 # Do command and return output regardless if throws errors
 def docommand(command):
     try:
@@ -25,123 +20,178 @@ def docommand(command):
     except subprocess.CalledProcessError as e:
         output = e.output
     return output
+# }}}
 
-# commandtolog( [list] command, [string] command_name, [string] log_path )
+# commandtolog( [list] command, [string] command_name, [string] log_path ) {{{
 # Look for log file folder, and create
 # Name the file as command-date-ISOformat.log
 # Get command output suting docommand() and write() into file
 # Print and exit
-def commandtolog(command, command_name, log_path):
+def commandtolog(command, command_name, log_path, args):
     filename = command_name + '-' + datetime.datetime.now().isoformat() + '.log'
     full_filename = log_path + filename
 
     # If log/ folder exist, continue
     if not os.path.exists(log_path):
-        sys.exit("[-] " + log_path + " Folder not found. Please create folder. Quitting without sync.")
+        if args.verbose:
+            print( "[-] " + log_path + " Folder not found. Please create folder. Quitting without sync." )
+        sys.exit(0)
     else:
-        print "[>] Log folder found! Creating log file: " + filename
+        if args.verbose:
+            print ( "[>] Log folder found! Creating log file: " + filename )
+
+    if args.debug:
+        print()
+        print ( command )
+        print()
+    if isinstance(command, list) == False:
+        command = command.split()
     output = docommand(command)
-    write(full_filename, output)
-    print '[+] ' + full_filename
+    if args.debug:
+        print()
+        print("Log File contents:")
+        print(output.decode("utf-8"))
+        print("EOF")
+        print()
+    with open(full_filename, "wt") as out_file:
+        out_file.write(output.decode("utf-8"))
+    if args.verbose:
+        print ( '[+] ' + full_filename )
+# }}}
+
+# Parser {{{
+parser = argparse.ArgumentParser(
+        prog=script_name,
+        description='''\
+               (Up/Down)loads to remote website.
+               EX: ''' + script_name + ''' -d www.yoursite.com''',
+        epilog='''
+           Sync uses rsync to move the website by using the ".''' +
+           script_name +
+           '''" file located in your
+           "/live_sites/"
+           folder. It will also write into the
+           /logs/
+           folder.
+        ''')
+
+parser.add_argument('-u', '--upload',
+                    help='Uploads site to remove (live) server.')
+parser.add_argument('-d', '--download',
+                    help='Downloads site to your local (dev) server.')
+parser.add_argument('-q', '--quiet',
+                    action="store_false", dest="verbose",
+                    help='Does not display any outputs')
+parser.add_argument('-v', '--verbose',
+                    action="store_true", dest="verbose",
+                    default=True,
+                    help='Verbose will show you important information.')
+parser.add_argument('--debug',
+                    action="store_true", dest="debug",
+                    help='VERY verbose. For debugging purposes.')
+parser.add_argument('--version', action='version', version='%(prog)s 0.2')
+
+args = parser.parse_args()
+# }}}
+
+if args.debug:
+    print ( args )
+
+if args.download:
+    website = args.download
+
+if args.upload:
+    website = args.upload
+
+# define variables
+local_website = websites_folder + website + "/"
+
+if args.verbose == True:
+    print ( '--------' )
+    print ('Website: ' + website)
+    print ( '--------' )
 
 
-def getremotesite():
-    for dotfile in glob.glob(".*"):
-        if dotfile == ".sync" and os.stat(dotfile).st_size != 0:
-            f = open(dotfile, 'r')
-            remote_website = []
-            for line in f:
-                remote_website.append(line[:-1])
-            f.close()
-            return remote_website
+# CD to local website and get .sync file
+os.chdir(local_website)
 
-def Sync(argv):
+# Get remote site
+for dotfile in glob.glob(".*"):
+    if dotfile == ".sync" and os.stat(dotfile).st_size != 0:
+        f = open(dotfile, 'r')
+        sync_file = []
+        for line in f:
+            sync_file.append(line[:-1])
+        f.close()
+
+if args.debug:
+    print ( '.' + script_name + ' file:' )
+    print ( sync_file )
+    print ()
+
+# If we have a sync_file, continue
+if sync_file:
+    # Must define here
+    log_path = local_website + log_name + '/'
+
+    remote_server = sync_file[0].split()
+    if args.upload:
+        local_subdirectory = ""
+        if len(remote_server) > 1:
+            local_subdirectory = remote_server[1]
+        from_location = local_website + local_subdirectory
+        to_location = remote_server[0]
+    if args.download:
+        remote_db = sync_file[1].split()
+        from_location = remote_db[0]
+        local_subdirectory = ""
+        if len(remote_db) > 1:
+            local_subdirectory = remote_db[1]
+        to_location = local_website + local_subdirectory
+        if args.verbose:
+            print ("[rsync] Downloading DB.")
+            print ( "[rsync] " + from_location + " -> " + to_location )
+        rsync_command = "rsync -vrizc --del --exclude=.sync --exclude=.ssh --exclude=" + log_name + " --exclude=.git --exclude=.gitignore -e ssh " + from_location + " " + to_location
+        commandtolog(rsync_command, 'rsync', log_path, args)
+
+        local_subdirectory = ""
+        if len(remote_server) > 1:
+            local_subdirectory = remote_server[1]
+        to_location = local_website + local_subdirectory
+        from_location = remote_server[0]
+
     # define variables
-    help_command = """sync(1)
+    if args.verbose:
+        print ("[rsync] Downloading files.")
+        print ( "[rsync] " + from_location + " -> " + to_location )
+    rsync_command = "rsync -vrizc --del --exclude=.sync --exclude=.ssh --exclude=db_backups --exclude=.git --exclude=.gitignore --exclude=" + log_name + " -e ssh " + from_location + " " + to_location
 
-    NAME
-            sync - will upload/download to client's site.
-    SYNOPSIS
-            Upload to live site:
-                sync -u [www.WEBSITE.com]
-                sync --upload=[www.WEBSITE.com]
-            Download from live site:
-                sync -d [www.WEBSITE.com]
-                sync --download=[www.WEBSITE.com]
+    # Run rsync & log
+    commandtolog(rsync_command, 'rsync', log_path, args)
 
-            Where WEBSITE is the client's name.
-    DESCRIPTION
-            Sync uses rsync to move sall client's website into the
-            """ + websites_folder + """ folder.
+    # CD to website
+    os.chdir(local_website)
 
-            It will also look for the remote server in the first line of the
-            """ + websites_folder + """[www.WEBSITE.com]/.sync file.
+    # Look for git
+    ignore = local_website + ".gitignore"
+    if not os.path.isfile(ignore):
+        if args.verbose:
+            print ( "[!] No .gitignore file found. Creating file." )
+        with open(ignore, "wt") as out_file:
+            out_file.write(log_name + '/')
+    if not os.path.exists(local_website + ".git"):
+        if args.verbose:
+            print ( "[!] No .git folder found. Initializing git." )
+        docommand(["git", "init"])
+        docommand(["git", "add", "."])
+        docommand(["git", "commit", "-am", "'Auto Commit'"])
 
+    # Run git status & log
+    commandtolog(["git", "log", "--since='1 week ago'"], 'git', log_path, args)
+else:
+    print ( "[rsync] No or empty .sync file found. Skipping website." )
 
-            """ + websites_folder + """[www.WEBSITE.com]/""" + log_name + """/ log files.
-        """
+if args.verbose:
+    print ( "[rsync] Finished: " + website )
 
-    if not argv:
-        print help_command
-        sys.exit(2)
-    try:
-        opts, args = getopt.getopt(argv, "hu:d:", ["upload=","download="])
-    except getopt.GetoptError:
-        print help_command
-        sys.exit(2)
-    for opt, website in opts:
-        # define variables
-        local_website = websites_folder + website + "/"
-
-        print '--------'
-        print 'Website: ' + website
-        print '--------'
-
-        os.chdir(local_website)
-        remote_website = getremotesite()
-        if remote_website:
-            # Must define here
-            log_path = local_website + log_name + '/'
-
-            if opt == '-h':
-                print help_command
-            elif opt in ("-u", "--upload"):
-                from_location = local_website
-                to_location = remote_website[0]
-            elif opt in ("-d", "--download"):
-                from_location = remote_website[1]
-                to_location = local_website
-                print "[rsync] " + from_location + " -> " + to_location
-                rsync_command = "rsync -vrizc --del --exclude=.sync --exclude=tmp --exclude=.ssh --exclude=" + log_name + " --exclude=.git --exclude=.gitignore " + from_location + " " + to_location
-                commandtolog(rsync_command.split(), 'rsync', log_path)
-
-                from_location = remote_website[0]
-
-            # define variables
-            print "[rsync] " + from_location + " -> " + to_location
-            rsync_command = "rsync -vrizc --del --exclude=.sync --exclude=db_backup --exclude=tmp --exclude=.ssh --exclude=" + log_name + " --exclude=.git --exclude=.gitignore " + from_location + " " + to_location
-
-            # CD to website
-            os.chdir(local_website)
-
-            # Run rsync & log
-            commandtolog(rsync_command.split(), 'rsync', log_path)
-
-            # Look for git
-            ignore = local_website + ".gitignore"
-            if not os.path.isfile(ignore):
-                print "[!] No .gitignore file found. Creating file."
-                write(ignore, log_name + '/')
-            if not os.path.exists(local_website + ".git"):
-                print "[!] No .git folder found. Initializing git."
-                docommand(["git", "init"])
-                docommand(["git", "add", "."])
-                docommand(["git", "commit", "-am", "'Auto Commit'"])
-
-            # Run git status & log
-            commandtolog(["git", "log", "--since='1 week ago'"], 'git', log_path)
-        else:
-            print "[rsync] No or empty .sync file found. Skipping website."
-    print "[rsync] Finished: " + website
-if __name__ == "__main__":
-    Sync(sys.argv[1:])
+sys.exit(0)
