@@ -5,8 +5,8 @@
 ## REQUIRES PYTHON3
 
 If you have a .NIX machine, make sure to install python3:
-	$ sudo apt-get install python3 (or equivalent)
-	$ python3 --version
+    $ sudo apt-get install python3 (or equivalent)
+    $ python3 --version
 
 Should output:
 	Python 3.x.x (or equivalent)
