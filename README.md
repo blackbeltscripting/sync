@@ -1,56 +1,151 @@
 # Sync.py
 
-## Version 0.2
+## Version 0.3
 
-## REQUIRES PYTHON3
+## REQUIREMENTS
 
-If you have a .NIX machine, make sure to install python3:
+* python3
+* ssh
+* rsync
+* git
+* `.sync_config` [File located in your home folder.]
+* `.sync` [File located in your local website's home folder.]
 
-	$ sudo apt-get install python3 (or equivalent)
+If you have a \*NIX machine, make sure to install the required commands:
+
+	$ sudo apt-get install python3 rsync git ssh
 	$ python3 --version
 
-Should output:
+The second line should output a version of python3.
 
-	Python 3.x.x (or equivalent)
+## Usage
 
-## Description
+(Up/Down)loads to remote website. For more information:
 
-(Up/Down)loads to remote website.
+	$ python3 Sync.py -h
 
-	EX: python3 Sync.py -d www.yoursite.com
-	python3 Sync.py -h
+## How it works
 
-It will look into your local_website folder (currently hard-wired into the script but later on will be in your ~/.sync file.) and begins to look for a local .sync file. EX:
+The script will look for your `~/.sync_config` file. Here is an example of a default `.sync_config` file:
+
+	[DEFAULT]
+	logs_folder = logs/
+	
+	[SYNC]
+	websites_folder = /var/www/
+
+There it will parse the `websites_folder` variable (default is `/var/www/`) and will look for that site:
+
+	$ python3 Sync.py -d www.yoursite.com
+
+Your default folder will then be:
+
+	/var/www/www.yoursite.com/
+
+Once it finds your selected site, it will parse its `.sync` file for the remote address and local folders to (up/down)load. Your default `.sync` file will be:
 
 	/var/www/www.yoursite.com/.sync
 
-The file will contain two lines:
+Here is a sample of a full `.sync` file:
 
-	remote_server local_folder
-	remote_db local_db_folder
+	[REMOTE]
+	is_remote = [true/false]
+	alias = yoursite
+	username = user
+	hostname = yoursite.com
+	folder = /public_html/
+	db_folder = /db_backups/
+	
+	[LOCAL]
+	folder = httpdocs/
+	db_folder = db_backups/
 
-The first line is the remote server address, followed by a [space] and the local folder. So if the first line is:
+## Local-to-Local sync
 
-	user@remote-server:/httpdocs/ httpdocs/
+If we ran the command `python3 Sync.py -d www.yoursite.com`, and we had the `.sync` below:
 
-And you want to download your site:
+	[REMOTE]
+	is_remote = false
+	folder = /home/user/Public/www.yoursite.com/public_html
+	
+	[LOCAL]
+	folder = public_html/
 
-	python3 Sync.py -d www.yoursite.com
+Then rsync will run like so:
 
-Sync.py will use rsync to download the site:
+	rsync /home/user/Public/www.yoursite.com/public_html /var/www/www.yoursite.com/public_html/
 
-	rsync -[...] --exclue=[exclude_list] -e ssh user@remote-server:/httpdocs/ /var/www/www.yoursite.com/httpdocs/
+## Local-to-Remote sync
+
+**NOTE:** Remember to set `is_remote` to `true`.
+
+### Using username@hostname
+
+If we ran the command `python3 Sync.py -d www.yoursite.com`, and we had the `.sync` below:
+
+	[REMOTE]
+	is_remote = true
+	username = user
+	hostname = yoursite.com
+	folder = /public_html/
+
+Then rsync will run like so:
+
+	rsync -e ssh user@yoursite.com:/public_html/ /var/www/www.yoursite.com/
+
+### Using alias
+
+If you want to `cron` this script, you can choose to use the `alias` variable. Simply type your `Host` name from your `~/.ssh/config` into the `.sync` file:
+
+If we ran the command `python3 Sync.py -u www.yoursite.com`, and we had the `~/.ssh/config` file below:
+
+	Host mysite
+		HostName yoursite.com
+		User user
+		IdentityFile ~/.ssh/id_rsa
+
+And we had the `.sync` file below:
+
+	[REMOTE]
+	is_remote = true
+	alias = mysite
+
+Then rsync will run like so:
+
+	rsync /var/www/www.yoursite.com/ -e ssh mysite
+
+### Download mysqldump
+
+If your remote server `cron`s a `mysqldump` file into a `tmp` folder. Simply type the following in your `.sync` file:
+
+	[REMOTE]
+	is_remote = true
+	alias = mysite
+	db_folder = /tmp/
+	
+	[LOCAL]
+	db_folder = db_backup/
+
+And Sync.py will automatically download all files in folder `/tmp/`.
+
+**NOTE:** The script will create a `db_folder` if not found.
+
+## Logs & Git
+
+Sync.py will by default log all commands into your logs folder (default `www.yoursite.com/logs`). If it doesn't find a `.git` folder in your site, it will init and do a first commit automatically.
+
+**NOTE:** The script will automaticall create a `logs/` folder if not found.
+
+### Changing log folder location
+
+To change the logs location to `loggings/` as an example, type the following in your `~/.sync_config`:
+
+	[DEFAULT]
+	logs_folder = loggins/
+
+**NOTE:** The script will automatically create a `loggins/` folder if not found.
 
 ## Development of Sync.py
-
-Sync.py currenly requires 4 variables to work:
-
-	1) [websites_folder] Where all your local sites will be held. (currently hard-wired into Sync.py but will be moved to your ~/.sync file)
-	2) The website's .sync file. EX: [websites_folder]/www.yoursite.com/.sync
-	3) The websites's logs folder. EX: [websites_folder]/www.yoursite.com/logs
-	4) The websites's db_backups folder. EX: [websites_folder]/www.yoursite.com/db_backups
-
-However in the next version, all we will need are the first two. The folders will be added automatically if none found.
 
 Also, the next version will have the capacity of doing multiple sites:
 
@@ -58,4 +153,4 @@ Also, the next version will have the capacity of doing multiple sites:
 
 ## Help
 
-I am a busy person who is always in need of efficient code to manage my businesses. If you are out there and are willing to help me develop this code who can also envision this project (more details of the project's vision will be created in the wiki soon), feel free to contact me.
+I am a busy person who is always in need of efficient code to manage my businesses. If you are out there and are willing to help me develop this code who can also envision this (or any other) project, feel free to contact me.
