@@ -6,17 +6,18 @@
 # Or visit us at:
 #    http://www.arty-web-design.com
 
-# Decided to add directories using the code from:
+# Decided to use the easy form to add the log directory using the code from:
 # http://stackoverflow.com/questions/273192/how-to-check-if-a-directory-exists-and-create-it-if-necessary
 
 # TODO:
 # sync -u site1 site2 ...
+# if no .sync_config file, create default.
 
 # Imports all classes that are being used in program
 import sys, glob, os, datetime, getopt, subprocess, argparse, configparser
 
 script_name='sync'
-version = '0.3'
+version = '0.3.1'
 
 # Import config file from home folder
 config_filename = ".sync_config"
@@ -43,13 +44,13 @@ if os.path.isfile(sync_config):
     # commandtolog( [list] command, [string] command_name, [string] log_path ) {{{
     # Look for log file folder, and create
     # Name the file as command-date-ISOformat.log
-    # Get command output suting docommand() and write() into file
+    # Get command output string docommand() and write() into file
     # Print and exit
     def commandtolog(command, command_name, log_path, args):
         filename = command_name + '-' + datetime.datetime.now().isoformat() + '.log'
         full_filename = log_path + filename
 
-        # If log/ folder exist, continue
+        # Create if doesn't exist: logs/
         if not os.path.exists(log_path):
             os.makedirs(log_path)
             if args.verbose:
@@ -93,7 +94,7 @@ if os.path.isfile(sync_config):
                         help='Downloads site to your local (dev) server.')
     parser.add_argument('-q', '--quiet',
                         action="store_false", dest="verbose",
-                        help='Does not display any outputs')
+                        help='Display only errors.')
     parser.add_argument('-v', '--verbose',
                         action="store_true", dest="verbose",
                         default=True,
@@ -123,9 +124,6 @@ if os.path.isfile(sync_config):
                 print( '--------' )
                 print( 'Website: ' + website )
                 print( '--------' )
-
-            # CD to local website and get .sync file
-            os.chdir(local_website)
 
             # Get local .sync file
             sync_filename = '.sync'
@@ -200,9 +198,6 @@ if os.path.isfile(sync_config):
                 # Run rsync & log
                 rsync_command = "rsync -vrizc --del --exclude=.git --exclude=.gitignore --exclude=.ssh --exclude=" + sync_filename + " --exclude=" + local_db_folder + " --exclude=" + log_folder + " " + from_location + " " + to_location
                 commandtolog(rsync_command, 'rsync', local_website + log_folder, args)
-
-                # CD to website
-                os.chdir(local_website)
 
                 # Look for git
                 ignore = local_website + ".gitignore"
