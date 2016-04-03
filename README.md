@@ -1,6 +1,6 @@
 # Sync.py
 
-## Version 0.3
+## Version 0.5.1
 
 ## REQUIREMENTS
 
@@ -8,7 +8,6 @@
 * ssh
 * rsync
 * git
-* `.sync_config` [File located in your home folder.]
 * `.sync` [File located in your local website's home folder.]
 * `wpscan` [GET IT HERE: http://wpscan.org/]
 
@@ -131,6 +130,28 @@ And Sync.py will automatically download all files in folder `/tmp/`.
 
 **NOTE:** The script will create a `db_folder` if not found.
 
+## Upload/Download Multiple sites at once:
+
+Sync.py can upload or download multiple websites at once with the simple code:
+
+	$ python3 Sync.py -[u/d] www.site1.com www.site2.com ...
+
+### Upload/Download all sites at once:
+
+Sync.py can process all your sites with the following command:
+
+	$ python3 Sync.py --[up/down]all
+
+**NOTE:** This command will ignore all -u and -d commands. Downloads takes precedence over uploads.
+
+### Download takes precedence over upload
+
+Suppose you write the following:
+
+	$ python3 Sync.py -d www.site1.com -u www.site2.com
+
+Sync.py **will ignore the upload arguments and will only download**!
+
 ## Logs & Git
 
 Sync.py will by default log all commands into your logs folder (default `www.yoursite.com/logs`). If it doesn't find a `.git` folder in your site, it will init and do a first commit automatically.
@@ -158,11 +179,7 @@ To change the logs location to `loggings/` as an example, type the following in 
 
 ## Development of Sync.py
 
-The next version will have the capacity of doing multiple sites:
-
-	python3 Sync.py -d www.site1.com www.site2.com -u www.site3.com www.site4.com
-
-It will also have the options of not logging/or auto-git
+The next version will have the options of not logging/or auto-git
 
 	python3 Sync.py -d www.yoursite.com --nolog --nogit
 
