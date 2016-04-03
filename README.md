@@ -10,6 +10,7 @@
 * git
 * `.sync_config` [File located in your home folder.]
 * `.sync` [File located in your local website's home folder.]
+* `wpscan` [GET IT HERE: http://wpscan.org/]
 
 If you have a \*NIX machine, make sure to install the required commands:
 
@@ -137,6 +138,14 @@ Sync.py will by default log all commands into your logs folder (default `www.you
 **NOTE:** The script will automaticall create a `logs/` folder if not found.
 
 **NOTE:** rsync will ignore your `.git/` folder, your `.gitignore` file, your `.ssh/` folder, your `logs/`, and your `.sync` files automatically. So there is no breach of security.
+
+## wpscan
+
+In order to automatically do a `wpscan`, you must have `ruby v 2.3.0+` and `wpscan`. Then add the `ruby` path in your `.sync_config` file:
+
+	wpscan_command = /home/usr/.rvm/wrappers/ruby-2.3.0@wpscan/ruby /path/to/wpscan/wpscan.rb --update --url
+
+And Sync.py will do the rest!
 
 ### Changing log folder location
 

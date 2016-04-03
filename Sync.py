@@ -17,7 +17,7 @@
 import sys, glob, os, datetime, getopt, subprocess, argparse, configparser
 
 script_name='sync'
-version = '0.3.1'
+version = '0.4.0'
 
 # Import config file from home folder
 config_filename = ".sync_config"
@@ -30,6 +30,8 @@ if os.path.isfile(sync_config):
         config_string = f.read()
     config = configparser.ConfigParser()
     config.read_string(config_string)
+
+    wpscan_command = config.get('SYNC', 'wpscan_command')
 
     # docommand( [list] command ) {{{
     # Do command and return output regardless if throws errors
@@ -92,6 +94,8 @@ if os.path.isfile(sync_config):
                         help='Uploads site to remove (live) server.')
     parser.add_argument('-d', '--download',
                         help='Downloads site to your local (dev) server.')
+    parser.add_argument('--wpscan', action="store_true", default=False,
+                        help='Runs wpscan on site. REQUIRES wpscan!')
     parser.add_argument('-q', '--quiet',
                         action="store_false", dest="verbose",
                         help='Display only errors.')
@@ -214,11 +218,23 @@ if os.path.isfile(sync_config):
                     docommand(["git", "add", "."])
                     docommand(["git", "commit", "-am", "'Auto Commit'"])
 
+                # CD to local website to run next command.
+                os.chdir(local_website)
+
                 # Run git status & log
                 commandtolog(["git", "log", "--since='1 week ago'"], 'git', local_website + log_folder, args)
             else:
                 sys.exit( "[ERROR] No or empty .sync file found. Skipping website." )
 
+            if args.wpscan:
+                wpscan_file_lookout = local_website + sync.get('LOCAL', 'folder', fallback="") + 'wp-config.php'
+
+                # If it's a WordPress site
+                if os.path.isfile(wpscan_file_lookout):
+                    if args.verbose:
+                        print( "[wpscan] WordPress Found. Initializing wpscan." )
+                    wpscan_command = wpscan_command + " " + website
+                    commandtolog(wpscan_command.split(), 'wpscan', local_website + log_folder, args)
             if args.verbose:
                 sys.exit( "[sync] Finished: " + website )
         else:
