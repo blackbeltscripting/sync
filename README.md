@@ -135,6 +135,7 @@ And Sync.py will automatically download all files in folder `/tmp/`.
 Sync.py will by default log all commands into your logs folder (default `www.yoursite.com/logs`). If it doesn't find a `.git` folder in your site, it will init and do a first commit automatically.
 
 **NOTE:** The script will automaticall create a `logs/` folder if not found.
+
 **NOTE:** rsync will ignore your `.git/` folder, your `.gitignore` file, your `.ssh/` folder, your `logs/`, and your `.sync` files automatically. So there is no breach of security.
 
 ### Changing log folder location
