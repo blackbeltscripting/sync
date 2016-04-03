@@ -114,7 +114,7 @@ Then rsync will run like so:
 
 	rsync /var/www/www.yoursite.com/ -e ssh mysite
 
-### Download mysqldump
+### Download mysqldump file output
 
 If your remote server `cron`s a `mysqldump` file into a `tmp` folder. Simply type the following in your `.sync` file:
 
@@ -147,9 +147,13 @@ To change the logs location to `loggings/` as an example, type the following in 
 
 ## Development of Sync.py
 
-Also, the next version will have the capacity of doing multiple sites:
+The next version will have the capacity of doing multiple sites:
 
 	python3 Sync.py -d www.site1.com www.site2.com -u www.site3.com www.site4.com
+
+It will also have the options of not logging/or auto-git
+
+	python3 Sync.py -d www.yoursite.com --nolog --nogit
 
 ## Help
 
