@@ -13,7 +13,7 @@
 import sys, glob, os, datetime, getopt, subprocess, argparse, configparser
 
 script_name='sync'
-version = '0.5.1'
+version = '0.5.3'
 
 # Import config file from home folder
 config_filename = ".sync_config"
@@ -183,7 +183,7 @@ if args.download or args.upload or args.upload_all or args.download_all:
                         # Alias is not setup. Do we have at least user@host?
                         if remote_username and remote_hostname:
                             if args.verbose:
-                                remote_server = sync.get('REMOTE', 'alias', fallback=remote_username + '@' + remote_hostname)
+                                remote_server = "ssh " + sync.get('REMOTE', 'alias', fallback=remote_username + '@' + remote_hostname)
                             else:
                                 sys.exit( "[ERROR] Cannot run quietly because this site has no alias. Setup your ssh to login automatically." )
                         else:
@@ -221,6 +221,9 @@ if args.download or args.upload or args.upload_all or args.download_all:
                 rsync_command = "rsync -vrizc --del --exclude=.git --exclude=.gitignore --exclude=.ssh --exclude=" + sync_filename + " --exclude=" + local_db_folder + " --exclude=" + log_folder + " " + from_location + " " + to_location
                 commandtolog(rsync_command, 'rsync', local_website + log_folder, args)
 
+                # CD to local website to run next command.
+                os.chdir(local_website)
+
                 # Look for git
                 ignore = local_website + ".gitignore"
                 if not os.path.isfile(ignore):
@@ -235,9 +238,6 @@ if args.download or args.upload or args.upload_all or args.download_all:
                     docommand(["git", "init"])
                     docommand(["git", "add", "."])
                     docommand(["git", "commit", "-am", "'Auto Commit'"])
-
-                # CD to local website to run next command.
-                os.chdir(local_website)
 
                 # Run git status & log
                 commandtolog(["git", "log", "--since='1 week ago'"], 'git', local_website + log_folder, args)
