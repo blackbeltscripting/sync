@@ -13,7 +13,7 @@
 import sys, glob, os, datetime, getopt, subprocess, argparse, configparser
 
 script_name='sync'
-version = '0.5.3'
+version = '0.5.5'
 
 # Import config file from home folder
 config_filename = ".sync_config"
@@ -50,6 +50,10 @@ parser.add_argument('-v', '--verbose',
                     action="store_true", dest="verbose",
                     default=True,
                     help='Verbose will show you important information.')
+parser.add_argument('--nolog', action="store_true", default=False,
+                    help='Will not log sync.')
+parser.add_argument('--nogit', action="store_true", default=False,
+                    help='Will not do git commands.')
 parser.add_argument('--debug',
                     action="store_true", dest="debug",
                     help='VERY verbose. For debugging purposes.')
@@ -98,29 +102,31 @@ def docommand(command):
 # Get command output string docommand() and write() into file
 # Print and exit
 def commandtolog(command, command_name, log_path, args):
-    filename = command_name + '-' + datetime.datetime.now().isoformat() + '.log'
-    full_filename = log_path + filename
-
-    # Create if doesn't exist: logs/
-    if not os.path.exists(log_path):
-        os.makedirs(log_path)
-        if args.verbose:
-            print( "[!] Created logs folder: " + log_path)
-    else:
-        if args.verbose:
-            print( "[>] Log folder found! Creating log file: " + filename )
+    if not args.nolog:
+        filename = command_name + '-' + datetime.datetime.now().isoformat() + '.log'
+        full_filename = log_path + filename
+        # Create if doesn't exist: logs/
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+            if args.verbose:
+                print( "[!] Created logs folder: " + log_path)
+        else:
+            if args.verbose:
+                print( "[>] Log folder found! Creating log file: " + filename )
 
     if args.debug:
         print( "\n" , command , "\n" )
     if isinstance(command, list) == False:
         command = command.split()
     output = docommand(command)
-    if args.debug:
-        print("\nLog File contents:\n" + output.decode("utf-8") + "\nEOF")
-    with open(full_filename, "wt") as out_file:
-        out_file.write(output.decode("utf-8"))
-    if args.verbose:
-        print( '[+] ' + full_filename )
+
+    if not args.nolog:
+        if args.debug:
+            print("\nLog File contents:\n" + output.decode("utf-8") + "\nEOF")
+        with open(full_filename, "wt") as out_file:
+            out_file.write(output.decode("utf-8"))
+        if args.verbose:
+            print( '[+] ' + full_filename )
 # }}}
 
 if args.debug:
@@ -224,23 +230,24 @@ if args.download or args.upload or args.upload_all or args.download_all:
                 # CD to local website to run next command.
                 os.chdir(local_website)
 
-                # Look for git
-                ignore = local_website + ".gitignore"
-                if not os.path.isfile(ignore):
-                    if args.verbose:
-                        print( "[!] No .gitignore file found. Creating file." )
-                    with open(ignore, "wt") as out_file:
-                        # ignores only the 'logs/' folder.
-                        out_file.write(log_folder)
-                if not os.path.exists(local_website + ".git"):
-                    if args.verbose:
-                        print( "[!] No .git folder found. Initializing git." )
-                    docommand(["git", "init"])
-                    docommand(["git", "add", "."])
-                    docommand(["git", "commit", "-am", "'Auto Commit'"])
+                if not args.nogit:
+                    # Look for git
+                    ignore = local_website + ".gitignore"
+                    if not os.path.isfile(ignore):
+                        if args.verbose:
+                            print( "[!] No .gitignore file found. Creating file." )
+                        with open(ignore, "wt") as out_file:
+                            # ignores only the 'logs/' folder.
+                            out_file.write(log_folder)
+                    if not os.path.exists(local_website + ".git"):
+                        if args.verbose:
+                            print( "[!] No .git folder found. Initializing git." )
+                        docommand(["git", "init"])
+                        docommand(["git", "add", "."])
+                        docommand(["git", "commit", "-am", "'Auto Commit'"])
 
-                # Run git status & log
-                commandtolog(["git", "log", "--since='1 week ago'"], 'git', local_website + log_folder, args)
+                    # Run git status & log
+                    commandtolog(["git", "log", "--since='1 week ago'"], 'git', local_website + log_folder, args)
             else:
                 sys.exit( "[ERROR] No or empty .sync file found. Skipping website." )
 
