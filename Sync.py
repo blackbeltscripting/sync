@@ -13,7 +13,7 @@
 import sys, glob, os, datetime, getopt, subprocess, argparse, configparser
 
 script_name='sync'
-version = '0.5.5'
+version = '0.5.9'
 
 # Import config file from home folder
 config_filename = ".sync_config"
@@ -24,7 +24,8 @@ parser = argparse.ArgumentParser(
         prog=script_name,
         description='''\
                (Up/Down)loads to remote website.
-               EX: ''' + script_name + ''' -d www.yoursite.com''',
+               EX: ''' + script_name + ''' -d www.yoursite.com
+               YOU MUST HAVE rsync installed.''',
         epilog='''
            Sync uses rsync to move the website by using the ".''' +
            script_name +
@@ -116,30 +117,35 @@ def commandtolog(command, command_name, log_path, args):
 
     if args.debug:
         print( "\n" , command , "\n" )
+
     if isinstance(command, list) == False:
         command = command.split()
-    output = docommand(command)
+        output = docommand(command)
 
     if not args.nolog:
         if args.debug:
             print("\nLog File contents:\n" + output.decode("utf-8") + "\nEOF")
+
         with open(full_filename, "wt") as out_file:
             out_file.write(output.decode("utf-8"))
-        if args.verbose:
-            print( '[+] ' + full_filename )
+    if args.verbose:
+        print( '[+] ' + full_filename )
 # }}}
 
 if args.debug:
     print( args )
 
 if args.download or args.upload or args.upload_all or args.download_all:
+    # Catch the websites.
     if args.upload:
         websites = args.upload
     if args.download:
         websites = args.download
     if args.upload_all or args.download_all:
+        # Go to websites folder and get all folder names.
         os.chdir(config.get('SYNC', 'websites_folder', fallback="/var/www"))
         websites = glob.glob('*')
+        # Still do up/download commands
         if args.upload_all:
             args.upload = True
         if args.download_all:
@@ -172,15 +178,16 @@ if args.download or args.upload or args.upload_all or args.download_all:
                 remote_server = ""
                 remote_folder = sync.get('REMOTE', 'folder', fallback="")
                 is_remote = sync.get('REMOTE', 'is_remote', fallback=False)
-                if is_remote:
+                remote_folder = sync.get('REMOTE', 'folder', fallback="")
+                remote_db_folder = sync.get('REMOTE', 'db_folder', fallback=False)
+                if is_remote == "true":
                     # Remote server MUST have username/hostname
                     remote_username = sync.get('REMOTE', 'username', fallback=False)
                     remote_hostname = sync.get('REMOTE', 'hostname', fallback=False)
                     remote_alias = sync.get('REMOTE', 'alias', fallback=False)
-                    remote_db_folder = sync.get('REMOTE', 'db_folder', fallback=False)
 
                     if remote_folder:
-                        remote_folder = ":" + remote_folder
+                        remote_folder = ":" + remote_folder + "/"
 
                     # If alias is setup, continue.
                     if remote_alias:
@@ -191,16 +198,22 @@ if args.download or args.upload or args.upload_all or args.download_all:
                             if args.verbose:
                                 remote_server = "ssh " + sync.get('REMOTE', 'alias', fallback=remote_username + '@' + remote_hostname)
                             else:
-                                sys.exit( "[ERROR] Cannot run quietly because this site has no alias. Setup your ssh to login automatically." )
+                                parser.error( "Cannot run quietly because this site has no alias. Setup your ssh to login automatically. Exiting." )
                         else:
-                            sys.exit( "[ERROR] " + sync_filename + " does not contain remote server address. Exiting." )
+                            parser.error( sync_filename + " does not contain remote server address. Exiting." )
                 else:
                     # Running rsync locally. Check if remote folder is set.
                     if not remote_folder:
-                        sys.exit( "[ERROR] No remote folder found. Check your " + sync_filename + " file. Exiting" )
+                        parser.error( "No remote folder found. Check your " + sync_filename + " file. Exiting." )
+                    else:
+                        remote_server = remote_folder
 
                 if args.upload:
-                    from_location = local_website + sync.get('LOCAL', 'folder', fallback="")
+                    local_folder = sync.get('LOCAL', 'folder', fallback="")
+                    if local_folder:
+                        from_location = local_website + local_folder + "/"
+                    else:
+                        from_location = local_website
                     to_location = "-e " + remote_server + remote_folder
 
                 local_db_folder = sync.get('LOCAL', 'db_folder', fallback="db_backups/")
@@ -208,7 +221,10 @@ if args.download or args.upload or args.upload_all or args.download_all:
                     # If remote_db_folder is set, rsync db
                     if remote_db_folder:
                         to_location = local_website + local_db_folder
-                        from_location = "-e " + remote_server + ":" + remote_db_folder
+                        if is_remote == "true":
+                            from_location = "-e " + remote_server + ":" + remote_db_folder + "/"
+                        else:
+                            from_location = remote_server + remote_db_folder
                         if args.verbose:
                             print( "[rsync] Downloading DB." )
                             print( "[rsync] " + from_location + " -> " + to_location )
@@ -216,11 +232,18 @@ if args.download or args.upload or args.upload_all or args.download_all:
                         rsync_command = "rsync -vrizc --del --exclude=.git --exclude=.gitignore --exclude=.ssh --exclude=" + sync_filename + " --exclude=" + log_folder + " " + from_location + " " + to_location
                         commandtolog(rsync_command, 'rsync', local_website + log_folder, args)
 
-                    to_location = local_website + sync.get('LOCAL', 'folder', fallback="")
-                    from_location = "-e " + remote_server + remote_folder
+                    local_folder = sync.get('LOCAL', 'folder', fallback="")
+                    if local_folder:
+                        to_location = local_website + local_folder + "/"
+                    else:
+                        to_location = local_website
+
+                    if is_remote == "true":
+                        from_location = "-e " + remote_server + remote_folder
+                    else:
+                        from_location = remote_server
 
                 if args.verbose:
-                    print( "[rsync] Downloading files." )
                     print( "[rsync] " + from_location + " -> " + to_location )
 
                 # Run rsync & log
@@ -247,15 +270,13 @@ if args.download or args.upload or args.upload_all or args.download_all:
                         docommand(["git", "commit", "-am", "'Auto Commit'"])
 
                     # Run git status & log
-                    commandtolog(["git", "log", "--since='1 week ago'"], 'git', local_website + log_folder, args)
+                    commandtolog("git log --since='1 week ago'", 'git', local_website + log_folder, args)
             else:
-                sys.exit( "[ERROR] No or empty .sync file found. Skipping website." )
+                parser.error( "No or empty .sync file found. Skipping website." )
 
             if args.wpscan:
-                wpscan_file_lookout = local_website + sync.get('LOCAL', 'folder', fallback="") + 'wp-config.php'
-
-                # If it's a WordPress site
-                if os.path.isfile(wpscan_file_lookout):
+                # Looks for WordPress config file. Won't work if wp-config.php is in sub-folders
+                if os.path.isfile(local_website + sync.get('LOCAL', 'folder', fallback="") + 'wp-config.php'):
                     if args.verbose:
                         print( "[wpscan] WordPress Found. Initializing wpscan." )
                     wpscan_command = wpscan_command + " " + website
@@ -265,4 +286,4 @@ if args.download or args.upload or args.upload_all or args.download_all:
         else:
             print( "[ERROR] No local website folder found. Skipping website: " + website )
 else:
-    sys.exit( "[ERROR] No site(s) specified. Exiting." )
+    parser.error( "No site(s) specified. Exiting." )
