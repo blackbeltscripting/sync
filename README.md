@@ -49,14 +49,14 @@ Once it finds your selected site, it will the `.sync` file for the remote folder
 
 This script requires SSH access and connects using only the `alias` found in your `~/.ssh/config` file:
 
-	Host `alias`
+	Host *alias*
 		HostName mysite.com
 		User username
 		IdentityFile ~/.ssh/id_rsa
 
 Rsync will then run like so:
 
-	rsync /var/www/www.yoursite.com/ -e ssh `alias`
+	rsync /var/www/www.yoursite.com/ -e ssh *alias*
 
 ## Upload/Download Multiple sites at once:
 
