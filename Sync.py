@@ -8,15 +8,20 @@
 
 # Decided to use the easy form to add the log directory using the code from:
 # http://stackoverflow.com/questions/273192/how-to-check-if-a-directory-exists-and-create-it-if-necessary
+# NOTE: Let's get the log file to Pub/logs through sync_config
 
 # Imports all classes that are being used in program
 import sys, glob, os, datetime, getopt, subprocess, argparse, configparser
 
 script_name='sync'
+<<<<<<< HEAD
 version = '0.5.9'
+=======
+version = '0.6.0'
+>>>>>>> adding_db
 
 # Import config file from home folder
-config_filename = ".sync_config"
+config_filename = ".sync"
 sync_config = os.environ['HOME'] + "/" + config_filename
 
 # Script Arguments {{{
@@ -29,9 +34,7 @@ parser = argparse.ArgumentParser(
         epilog='''
            Sync uses rsync to move the website by using the ".''' +
            script_name +
-           '''" file located in your websites_folder. All logs will be
-           written in your logs_folder. To change these locations,
-           edit your "''' + config_filename + '''" file located at '''
+           '''" file located in your home folder: '''
            + sync_config)
 
 parser.add_argument('-u', '--upload', metavar='WEBSITE', nargs='*',
@@ -42,40 +45,14 @@ parser.add_argument('--upload_all', action="store_true", default=False,
                     help='Uploads all websites from your local (dev) server. If this command is called, program will ignore all other "-u" or "-d" commands.')
 parser.add_argument('--download_all', action="store_true", default=False,
                     help='Downloads all websites from your local (dev) server. If this command is called, program will ignore all other "-u" or "-d" commands.')
-parser.add_argument('--wpscan', action="store_true", default=False,
-                    help='Runs wpscan on site. REQUIRES wpscan!')
-parser.add_argument('-q', '--quiet',
-                    action="store_false", dest="verbose",
-                    help='Display only errors.')
+
 parser.add_argument('-v', '--verbose',
                     action="store_true", dest="verbose",
                     default=True,
                     help='Verbose will show you important information.')
-parser.add_argument('--nolog', action="store_true", default=False,
-                    help='Will not log sync.')
-parser.add_argument('--nogit', action="store_true", default=False,
-                    help='Will not do git commands.')
-parser.add_argument('--debug',
-                    action="store_true", dest="debug",
-                    help='VERY verbose. For debugging purposes.')
-parser.add_argument('--version', action='version', version='%(prog)s ' + version)
+parser.add_argument('--version', action='version', version='%(prog)s '+version)
 
 args = parser.parse_args()
-# }}}
-
-# Create default config file if none found {{{
-if not os.path.isfile(sync_config):
-    # No configuration file found.
-    if args.verbose:
-        print( "[!] No " + config_filename + " file found. Creating file." )
-    with open(sync_config, "wt") as out_file:
-        # Write default config file
-        output = '''[DEFAULT]
-logs_folder = logs/
-
-[SYNC]
-websites_folder = /var/www/'''
-        out_file.write(output)
 # }}}
 
 # Read file and parse it. {{{
@@ -87,6 +64,7 @@ config.read_string(config_string)
 wpscan_command = config.get('SYNC', 'wpscan_command')
 # }}}
 
+<<<<<<< HEAD
 # docommand( [list] command ) {{{
 # Do command and return output regardless if throws errors
 def docommand(command):
@@ -137,14 +115,25 @@ if args.debug:
 
 if args.download or args.upload or args.upload_all or args.download_all:
     # Catch the websites.
+=======
+if args.download or args.upload or args.upload_all or args.download_all:
+    # Catch the websites.
+    livesites_folder = config.get('SYNC', 'websites_folder', \
+            fallback="/var/www")
+>>>>>>> adding_db
     if args.upload:
         websites = args.upload
     if args.download:
         websites = args.download
     if args.upload_all or args.download_all:
         # Go to websites folder and get all folder names.
+<<<<<<< HEAD
         os.chdir(config.get('SYNC', 'websites_folder', fallback="/var/www"))
         websites = glob.glob('*')
+=======
+        os.chdir(livesites_folder)
+        websites = next(os.walk(os.path.join(livesites_folder,'.')))[1]
+>>>>>>> adding_db
         # Still do up/download commands
         if args.upload_all:
             args.upload = True
@@ -152,13 +141,14 @@ if args.download or args.upload or args.upload_all or args.download_all:
             args.download = True
     for website in websites:
         # define variables
-        local_website = config.get('SYNC', 'websites_folder', fallback="/var/www/") + website + "/"
+        local_website = livesites_folder + website + "/"
 
         if os.path.exists(local_website):
             if args.verbose == True:
                 print( '--------' )
                 print( 'Website: ' + website )
                 print( '--------' )
+<<<<<<< HEAD
             # Get local .sync file
             sync_filename = '.sync'
             if os.path.isfile(local_website + sync_filename):
@@ -215,9 +205,16 @@ if args.download or args.upload or args.upload_all or args.download_all:
                     else:
                         from_location = local_website
                     to_location = "-e " + remote_server + remote_folder
+=======
+            if website in config['WEBSITES']:
+                ssh = "-e ssh " + website + ":/" + config['WEBSITES'][website]
+                if args.upload:
+                    from_location = local_website
+                    to_location = ssh
+>>>>>>> adding_db
 
-                local_db_folder = sync.get('LOCAL', 'db_folder', fallback="db_backups/")
                 if args.download:
+<<<<<<< HEAD
                     # If remote_db_folder is set, rsync db
                     if remote_db_folder:
                         to_location = local_website + local_db_folder
@@ -242,17 +239,21 @@ if args.download or args.upload or args.upload_all or args.download_all:
                         from_location = "-e " + remote_server + remote_folder
                     else:
                         from_location = remote_server
+=======
+                    from_location = ssh
+                    to_location = local_website
+>>>>>>> adding_db
 
                 if args.verbose:
                     print( "[rsync] " + from_location + " -> " + to_location )
 
                 # Run rsync & log
-                rsync_command = "rsync -vrizc --del --exclude=.git --exclude=.gitignore --exclude=.ssh --exclude=" + sync_filename + " --exclude=" + local_db_folder + " --exclude=" + log_folder + " " + from_location + " " + to_location
-                commandtolog(rsync_command, 'rsync', local_website + log_folder, args)
+                rsync_command = "rsync -vrizc --del " + \
+                    "--exclude=.git --exclude=.gitignore --exclude=.ssh " + \
+                    from_location + " " + to_location
+                print(subprocess.getoutput(rsync_command))
 
-                # CD to local website to run next command.
-                os.chdir(local_website)
-
+<<<<<<< HEAD
                 if not args.nogit:
                     # Look for git
                     ignore = local_website + ".gitignore"
@@ -281,9 +282,14 @@ if args.download or args.upload or args.upload_all or args.download_all:
                         print( "[wpscan] WordPress Found. Initializing wpscan." )
                     wpscan_command = wpscan_command + " " + website
                     commandtolog(wpscan_command.split(), 'wpscan', local_website + log_folder, args)
+=======
+            else:
+                parser.error("Website folder not configured in: "+ sync_config)
+
+>>>>>>> adding_db
             if args.verbose:
                 print( "[sync] Finished: " + website )
         else:
-            print( "[ERROR] No local website folder found. Skipping website: " + website )
+            print( "[ERROR] No local website folder found: " + local_website )
 else:
     parser.error( "No site(s) specified. Exiting." )
